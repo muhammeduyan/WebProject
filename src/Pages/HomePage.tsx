@@ -5,7 +5,9 @@ import type { Task, TaskFormValues } from '../Interfaces'
 
 const STORAGE_KEY = 'task-manager-items-v1'
 const ENV_API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
-const API_PREFIX = ENV_API_BASE_URL ? `${ENV_API_BASE_URL.replace(/\/$/, '')}/api` : '/api'
+const API_BASE_ROOT = ENV_API_BASE_URL.replace(/\/$/, '')
+const API_PREFIX = API_BASE_ROOT ? `${API_BASE_ROOT}/api` : import.meta.env.DEV ? '/api' : ''
+const SWAGGER_URL = API_PREFIX ? `${API_PREFIX}/docs` : ''
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('tr-TR', {
@@ -40,6 +42,10 @@ function getErrorMessage(error: unknown): string {
     return 'API sunucusuna ulasilamadi. `cd server && npm run dev` komutunu calistirin.'
   }
 
+  if (error instanceof SyntaxError) {
+    return 'API yaniti JSON formatinda degil. `VITE_API_BASE_URL` ayarini kontrol edin.'
+  }
+
   if (error instanceof Error) {
     return error.message
   }
@@ -48,6 +54,10 @@ function getErrorMessage(error: unknown): string {
 }
 
 async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!API_PREFIX) {
+    throw new Error('API adresi tanimli degil. Netlify ortamina `VITE_API_BASE_URL` ekleyin.')
+  }
+
   const headers = new Headers(init?.headers)
   if (init?.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
@@ -61,12 +71,22 @@ async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let message = 'API istegi basarisiz oldu.'
 
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null
-    if (payload?.message) {
-      message = payload.message
+    const responseContentType = response.headers.get('content-type') ?? ''
+    if (responseContentType.includes('application/json')) {
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null
+      if (payload?.message) {
+        message = payload.message
+      }
+    } else {
+      message = `API istegi basarisiz oldu (HTTP ${response.status}).`
     }
 
     throw new Error(message)
+  }
+
+  const responseContentType = response.headers.get('content-type') ?? ''
+  if (!responseContentType.includes('application/json')) {
+    throw new Error('API JSON yerine farkli bir yanit dondurdu. API URL ayarini kontrol edin.')
   }
 
   return (await response.json()) as T
@@ -83,6 +103,12 @@ export function HomePage() {
   }, [localTasks])
 
   const loadApiTasks = useCallback(async (signal?: AbortSignal) => {
+    if (!API_PREFIX) {
+      setApiError('API paneli icin `VITE_API_BASE_URL` tanimlayip yeniden deploy edin.')
+      setApiTasks([])
+      return
+    }
+
     setIsApiLoading(true)
     setApiError(null)
 
@@ -213,19 +239,25 @@ export function HomePage() {
                 <button
                   type="button"
                   onClick={() => void loadApiTasks()}
-                  disabled={isApiLoading}
+                  disabled={isApiLoading || !API_PREFIX}
                   className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
                 >
                   API'den Yenile
                 </button>
-                <a
-                  href={`${ENV_API_BASE_URL ? ENV_API_BASE_URL.replace(/\/$/, '') : ''}/api/docs`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Swagger UI Ac
-                </a>
+                {SWAGGER_URL ? (
+                  <a
+                    href={SWAGGER_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Swagger UI Ac
+                  </a>
+                ) : (
+                  <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    Swagger icin `VITE_API_BASE_URL` tanimlayin.
+                  </span>
+                )}
               </div>
             </header>
 

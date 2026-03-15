@@ -104,6 +104,7 @@ npm run build
 - Publish directory: `dist`
 - SPA fallback icin repo kokunde `netlify.toml` dosyasi eklidir.
 - API panelinin Netlify'da veri gostermesi icin API'yi ayri bir ortamda yayinlayip Netlify environment variable olarak `VITE_API_BASE_URL` degeri girilmelidir.
+- `VITE_API_BASE_URL` yoksa production ortaminda API paneli otomatik olarak pasif kalir ve sadece bilgilendirme mesaji gosterir.
 
 ## Sorun Giderme
 
