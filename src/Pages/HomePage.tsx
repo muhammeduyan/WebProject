@@ -18,13 +18,21 @@ function formatDate(date: Date): string {
 }
 
 function loadTasksFromStorage(): Task[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
   const rawTasks = localStorage.getItem(STORAGE_KEY)
   if (!rawTasks) {
     return []
   }
 
-  const parsedTasks = JSON.parse(rawTasks) as Task[]
-  return Array.isArray(parsedTasks) ? parsedTasks : []
+  try {
+    const parsedTasks = JSON.parse(rawTasks) as Task[]
+    return Array.isArray(parsedTasks) ? parsedTasks : []
+  } catch {
+    return []
+  }
 }
 
 function getErrorMessage(error: unknown): string {

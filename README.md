@@ -98,6 +98,13 @@ npm run lint
 npm run build
 ```
 
+## Netlify Deploy Notlari
+
+- Build command: `npm run build`
+- Publish directory: `dist`
+- SPA fallback icin repo kokunde `netlify.toml` dosyasi eklidir.
+- API panelinin Netlify'da veri gostermesi icin API'yi ayri bir ortamda yayinlayip Netlify environment variable olarak `VITE_API_BASE_URL` degeri girilmelidir.
+
 ## Sorun Giderme
 
 - UI'da `Failed to fetch` gorurseniz once API'nin calistigini kontrol edin: `cd server && npm run dev`
