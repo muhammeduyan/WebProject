@@ -37,25 +37,9 @@ function loadTasksFromStorage(): Task[] {
   }
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof TypeError) {
-    return 'API sunucusuna ulasilamadi. `cd server && npm run dev` komutunu calistirin.'
-  }
-
-  if (error instanceof SyntaxError) {
-    return 'API yaniti JSON formatinda degil. `VITE_API_BASE_URL` ayarini kontrol edin.'
-  }
-
-  if (error instanceof Error) {
-    return error.message
-  }
-
-  return 'Beklenmeyen bir hata olustu.'
-}
-
 async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_PREFIX) {
-    throw new Error('API adresi tanimli degil. Netlify ortamina `VITE_API_BASE_URL` ekleyin.')
+    throw new Error('API adresi tanimli degil.')
   }
 
   const headers = new Headers(init?.headers)
@@ -96,7 +80,6 @@ export function HomePage() {
   const [localTasks, setLocalTasks] = useState<Task[]>(() => loadTasksFromStorage())
   const [apiTasks, setApiTasks] = useState<Task[]>([])
   const [isApiLoading, setIsApiLoading] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(localTasks))
@@ -104,13 +87,11 @@ export function HomePage() {
 
   const loadApiTasks = useCallback(async (signal?: AbortSignal) => {
     if (!API_PREFIX) {
-      setApiError('API paneli icin `VITE_API_BASE_URL` tanimlayip yeniden deploy edin.')
       setApiTasks([])
       return
     }
 
     setIsApiLoading(true)
-    setApiError(null)
 
     try {
       const apiData = await requestApi<Task[]>('/tasks', {
@@ -122,14 +103,17 @@ export function HomePage() {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return
       }
-
-      setApiError(getErrorMessage(error))
+      setApiTasks([])
     } finally {
       setIsApiLoading(false)
     }
   }, [])
 
   useEffect(() => {
+    if (!API_PREFIX) {
+      return
+    }
+
     const controller = new AbortController()
     void loadApiTasks(controller.signal)
 
@@ -235,16 +219,16 @@ export function HomePage() {
                 API verileri burada listelenir; ekleme, guncelleme ve silme islemleri Swagger ekranindan yapilir.
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void loadApiTasks()}
-                  disabled={isApiLoading || !API_PREFIX}
-                  className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
-                >
-                  API'den Yenile
-                </button>
-                {SWAGGER_URL ? (
+              {API_PREFIX && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void loadApiTasks()}
+                    disabled={isApiLoading}
+                    className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+                  >
+                    API'den Yenile
+                  </button>
                   <a
                     href={SWAGGER_URL}
                     target="_blank"
@@ -253,19 +237,9 @@ export function HomePage() {
                   >
                     Swagger UI Ac
                   </a>
-                ) : (
-                  <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                    Swagger icin `VITE_API_BASE_URL` tanimlayin.
-                  </span>
-                )}
-              </div>
+                </div>
+              )}
             </header>
-
-            {apiError && (
-              <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                {apiError}
-              </p>
-            )}
 
             {isApiLoading && (
               <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
